@@ -327,6 +327,11 @@
             color: var(--biru); font-variant-numeric: tabular-nums; white-space: nowrap;
         }
         .pel-tagihan b.pel-tagihan-kosong { font-size: 1rem; color: var(--teks-samar); font-weight: 700; }
+        /* Sisa utang pelanggan "Sudah Bayar" yang cash-nya kurang (sama dengan aplikasi Petugas) */
+        .pel-utang-mini {
+            display: block; margin-top: 2px; font-size: .72rem; font-weight: 800;
+            color: var(--merah); font-variant-numeric: tabular-nums;
+        }
         .pel-nomor {
             display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
             min-width: 28px; height: 26px; padding: 0 6px; border-radius: 8px; margin-top: 1px;
@@ -759,6 +764,13 @@
     let daftarPeriode = []; // teks periode unik, urut kronologis
     let idxPeriode = 0;     // indeks periode aktif di daftarPeriode
     let excelData = [];     // baris periode aktif (nama variabel sama seperti aplikasi utama)
+    // URUTAN RUMAH — kemunculan PERTAMA tiap nama menurut urutan id database.
+    // Sama persis dengan susunDaftarDariBaris di aplikasi Petugas: urutan nama
+    // "terkunci" mengikuti id terkecil tiap nama, bukan urutan baris periode
+    // aktif. Tanpa ini, periode yang barisnya pernah tersimpan urut abjad
+    // (mis. Oktober RT 08, September–Oktober RT 09) tampil melompat dari
+    // urutan rumah, padahal Juni–Juli benar.
+    let urutanReferensi = [];
 
     function num(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
 
@@ -961,7 +973,7 @@
         if (id === rtAktif || !DAFTAR_RT.some(r => r.id === id)) return;
         rtAktif = id;
         // Reset state tampilan supaya tidak ada sisa RT sebelumnya
-        semuaBaris = []; daftarPeriode = []; excelData = []; idxPeriode = 0;
+        semuaBaris = []; daftarPeriode = []; excelData = []; idxPeriode = 0; urutanReferensi = [];
         terapkanIdentitasRT();
         renderSemua();
         // Sembunyikan toast lama yg mungkin masih muncul dari RT sebelumnya,
@@ -981,8 +993,37 @@
         return awalSingkat + " – " + akhir;
     }
 
+    // Urutan rumah = kemunculan pertama tiap nama mengikuti urutan id (baris
+    // dibaca ORDER BY id dari MySQL). Ini penyalinan logika susunDaftarDariBaris
+    // aplikasi Petugas sehingga urutan nama viewer = urutan nama di aplikasi.
+    function hitungUrutanReferensi() {
+        const urut = [];
+        const lihat = new Set();
+        semuaBaris.forEach(r => {
+            if (r.nama == null) return;
+            const n = String(r.nama);
+            if (!lihat.has(n)) { lihat.add(n); urut.push(n); }
+        });
+        urutanReferensi = urut;
+    }
+
+    // Ambil baris periode aktif lalu URUTKAN mengikuti urutan rumah.
+    // Nama yang tidak ada di urutan referensi (baru saja muncul) ditaruh di
+    // akhir tanpa merusak urutan relatif mereka.
+    function susunExcelDataPeriode() {
+        const teks = daftarPeriode[idxPeriode] || "";
+        excelData = semuaBaris.filter(b => b.periode === teks);
+        const posisi = new Map();
+        urutanReferensi.forEach((n, i) => posisi.set(n, i));
+        const posAkhir = urutanReferensi.length;
+        excelData.sort((a, b) =>
+            (posisi.has(a.nama) ? posisi.get(a.nama) : posAkhir) -
+            (posisi.has(b.nama) ? posisi.get(b.nama) : posAkhir));
+    }
+
     function terapkanBaris(baris, namaSumber, dariDb) {
         semuaBaris = baris;
+        hitungUrutanReferensi();
         daftarPeriode = susunPeriode(semuaBaris);
         // default tampil: periode TERBARU yang ada datanya
         idxPeriode = daftarPeriode.length ? daftarPeriode.length - 1 : 0;
@@ -1205,8 +1246,7 @@
     }
 
     function muatDataPeriodeAktif() {
-        const teks = daftarPeriode[idxPeriode] || "";
-        excelData = semuaBaris.filter(b => b.periode === teks);
+        susunExcelDataPeriode(); // filter periode aktif + urutkan sesuai urutan rumah
     }
 
     // navigasi mundur/maju — hanya antar periode yang ada datanya
@@ -1233,7 +1273,7 @@
         let cash = parseFloat(item.cash) || 0;
         let selisihAset = cash - sisaTagihanNet;
 
-        return { pemakaian, biayaAir, beban, saldoLalu, tagihanBulanIni, totalHarusBayar, cash, selisihAset };
+        return { pemakaian, biayaAir, beban, saldoLalu, tagihanBulanIni, sisaTagihanNet, totalHarusBayar, cash, selisihAset };
     }
 
     /* ---------- DAFTAR PELANGGAN (kartu 2 baris, tanpa tombol aksi) ---------- */
@@ -1250,10 +1290,19 @@
             jumlahTampil++;
             let info = hitungDetailPelanggan(item);
 
-            // Kartu dashboard SELALU putih bersih — deposit/utang TIDAK ditampilkan di sini,
-            // semua info uang lebih / utang baru muncul lewat tombol LIHAT (modal rincian).
+            // Kartu dashboard: badge Lunas + sisa utang (bila ada) tampil di sini,
+            // rincian lengkap uang lebih / utang lewat tombol LIHAT (modal rincian).
             let statusMiniHtml = '';
             let isMeterEntered = item.meter_akhir > 0 && item.meter_akhir >= item.meter_awal;
+
+            // Sisa utang pelanggan "Sudah Bayar" yang cash-nya kurang dari tagihan
+            // (selisihAset = cash - tagihanNet). Sama dengan aplikasi Petugas:
+            // tampil hanya bila defisit melebihi biaya beban — defisit kecil
+            // dianggap komisi petugas, bukan utang.
+            let utangHtml = '';
+            if (item.status === 'Sudah Bayar' && info.selisihAset < 0 && (-info.selisihAset) > info.beban) {
+                utangHtml = '<span class="pel-utang-mini">Utang Rp ' + Math.abs(info.selisihAset).toLocaleString('id-ID') + ' (nyusul)</span>';
+            }
 
             if (item.status === 'Sudah Bayar') {
                 statusMiniHtml = `<span class="pel-mini pel-mini-lunas"><span>Lunas</span><svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 13.4 C 6.8 14.8, 8.4 16.4, 9.6 18.4 C 12.4 14.6, 16.6 9.4, 20.6 5.6"/></svg></span>`;
@@ -1286,6 +1335,7 @@
                     <div class="pel-tagihan">
                         <span class="pel-tagihan-label">Tagihan bulan ini</span>
                         ${tagihanHtml}
+                        ${utangHtml}
                     </div>
                 </div>
             `;
@@ -1398,10 +1448,38 @@
         let html = '';
 
         if (item.status === 'Sudah Bayar') {
-            /* ===== SUDAH BAYAR — banner hijau "PEMBAYARAN DITERIMA" ===== */
+            /* ===== SUDAH BAYAR — banner hijau "PEMBAYARAN DITERIMA" =====
+               Rincian & sisa utang disamakan dengan aplikasi Petugas:
+               selisihAset = cash - (tagihan - saldoLalu).
+               - Defisit > biaya beban  → blok merah "Sisa utang" (nyusul bulan depan)
+               - Defisit <= beban       → komisi petugas, tidak ditampilkan utang
+               - Surplus                → lebih bayar jadi deposit bulan depan
+               - Tagihan ditutup deposit (totalHarusBayar 0) → banner khusus deposit */
             const ketSaldo = info.saldoLalu < 0 ? 'Kurang bayar bulan lalu (ditambahkan)'
                           : info.saldoLalu > 0 ? 'Deposit bulan lalu (dikurangkan)'
-                          : 'Tagihan bulan lalu';
+                          : 'Saldo bulan lalu';
+            const utangSisa = info.selisihAset < 0 ? Math.abs(info.selisihAset) : 0;
+            const lebihBayar = info.selisihAset > 0 ? info.selisihAset : 0;
+            const utangTampak = utangSisa > info.beban; // sama dengan aturan aplikasi Petugas
+
+            let bannerHtml;
+            if (info.totalHarusBayar === 0 && info.sisaTagihanNet < 0) {
+                const sisaDeposit = -info.sisaTagihanNet + info.cash;
+                bannerHtml = `
+                    <div class="nota-banner nota-banner-hijau">
+                        <div class="banner-utama"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.8-5"/></svg>LUNAS &mdash; Ditutup Saldo Deposit</div>
+                        <div class="banner-angka">${rp(info.tagihanBulanIni)}</div>
+                        <div class="banner-sub">Tagihan bulan ini ditutup deposit &mdash; sisa deposit ${rp(sisaDeposit)}</div>
+                    </div>`;
+            } else {
+                bannerHtml = `
+                    <div class="nota-banner nota-banner-hijau">
+                        <div class="banner-utama"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.8-5"/></svg>Pembayaran Diterima</div>
+                        <div class="banner-angka">${rp(info.cash)}</div>
+                        <div class="banner-sub">${utangTampak ? 'Bayar sebagian &mdash; kurangnya nyusul bulan depan' : 'Terima kasih sudah membayar!'}</div>
+                    </div>`;
+            }
+
             html = `
             <div class="nota">
                 ${kepala}
@@ -1411,43 +1489,70 @@
                         <div><b>Periode</b> : ${item.periode}</div>
                         <div><b>Nama Pelanggan</b> : ${item.nama}</div>
                     </div>
-                    <div class="nota-banner nota-banner-hijau">
-                        <div class="banner-utama"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.8-5"/></svg>Pembayaran Diterima</div>
-                        <div class="banner-angka">${rp(info.totalHarusBayar)}</div>
-                        <div class="banner-sub">Terima kasih sudah membayar!</div>
-                    </div>
+                    ${bannerHtml}
                     <div class="nota-baris"><span>Meteran</span><b>${item.meter_awal} ${PANAH} ${item.meter_akhir} (pakai ${info.pemakaian} m&sup3;)</b></div>
                     <div class="nota-baris"><span>Pemakaian air (${info.pemakaian} m&sup3; &times; Rp ${TARIF_PER_M3.toLocaleString('id-ID')})</span><b>${rp(info.biayaAir)}</b></div>
                     <div class="nota-baris"><span>Biaya beban</span><b>${rp(info.beban)}</b></div>
                     <div class="nota-baris"><span>${ketSaldo}</span><b>${info.saldoLalu < 0 ? '' : info.saldoLalu > 0 ? '\u2212 ' : ''}${rp(info.saldoLalu)}</b></div>
-                    <div class="nota-total"><span>TOTAL DIBAYAR</span><b>${rp(info.totalHarusBayar)}</b></div>
+                    <div class="nota-total"><span>TOTAL TAGIHAN BULAN INI</span><b>${rp(info.totalHarusBayar)}</b></div>
                     <div class="nota-bayar">
                         <span>Uang diterima (cash)</span><b>${rp(info.cash)}</b>
                     </div>
+                    ${utangTampak ? `
+                    <div class="nota-banner nota-banner-merah" style="margin-top:10px; margin-bottom:0;">
+                        <div class="banner-utama"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V13"/><path d="M12 16.5h.01"/></svg>Sisa Utang &mdash; Nyusul Bulan Depan</div>
+                        <div class="banner-angka">${rp(utangSisa)}</div>
+                        <div class="banner-sub">Cash kurang dari total tagihan &mdash; sama dengan catatan aplikasi Petugas</div>
+                    </div>` : ''}
+                    ${lebihBayar > 0 ? `
+                    <div class="nota-bayar" style="background:#f0fdf4; border-color:#bbf7d0; margin-top:10px;">
+                        <span>Lebih bayar &mdash; jadi deposit bulan depan</span><b>${rp(lebihBayar)}</b>
+                    </div>` : ''}
                     <div class="nota-petugas">
                         Petugas pemungut yang bertanggung jawab: <b>( ${NAMA_PETUGAS} )</b>
                     </div>
                 </div>
             </div>`;
         } else {
-            /* ===== BELUM BAYAR — Referensi B: blok per bulan + jumlah tiap bulan ===== */
+            /* ===== BELUM BAYAR — Referensi B: blok per bulan + jumlah tiap bulan =====
+               Total dihitung seperti buku rekening: jumlah tagihan semua bulan
+               yang belum dibayar, LALU ditambah utang / dikurangi deposit yang
+               dibawa dari bulan-bulan SEBELUM rantai (saldo_lalu bulan pertama
+               rantai). Dulu saldo itu diabaikan sehingga total tidak sama
+               dengan aplikasi Petugas. */
             const rantai = kumpulkanTunggakan(item);
+            const saldoAwalRantai = num(rantai[0].saldo_lalu); // utang (-) / deposit (+) dari sebelum rantai
             let total = 0, totalM3 = 0, blokBulan = '';
 
-            rantai.forEach(b => {
+            rantai.forEach((b, bi) => {
                 const i = hitungDetailPelanggan(b);
                 const jumlahBulan = i.biayaAir + i.beban;
                 total += jumlahBulan;
                 totalM3 += i.pemakaian;
+                // Saldo dibawa hanya ditampilkan sekali — di blok bulan PERTAMA
+                // rantai (utang bulan-bulan di dalam rantai sudah mewakili
+                // tagihan bulannya masing-masing, tidak boleh dihitung dobel).
+                const barisSaldoAwal = (bi === 0 && saldoAwalRantai !== 0)
+                    ? `<div class="nota-baris"><span>${saldoAwalRantai < 0 ? 'Kurang bayar bulan-bulan sebelumnya (ditambahkan)' : 'Deposit bulan-bulan sebelumnya (dikurangkan)'}</span><b>${saldoAwalRantai < 0 ? '' : '\u2212 '}${rp(Math.abs(saldoAwalRantai))}</b></div>`
+                    : '';
                 blokBulan += `
                 <div class="nota-bulan">
                     <div class="nota-bulan-judul">&#9656; ${b.periode} &mdash; belum dibayar</div>
                     <div class="nota-baris"><span>Meteran</span><b>${b.meter_awal} ${PANAH} ${b.meter_akhir}</b></div>
                     <div class="nota-baris"><span>Pemakaian ${i.pemakaian} m&sup3; &times; Rp ${TARIF_PER_M3.toLocaleString('id-ID')}</span><b>${rp(i.biayaAir)}</b></div>
                     <div class="nota-baris"><span>Biaya beban</span><b>${rp(i.beban)}</b></div>
+                    ${barisSaldoAwal}
                     <div class="nota-baris nota-jumlah"><span>Jumlah ${namaBulan(b.periode)}</span><b>${rp(jumlahBulan)}</b></div>
                 </div>`;
             });
+
+            // utang bawaan menambah total, deposit bawaan mengurangi (rumus sama
+            // dengan aplikasi Petugas: totalHarusBayar = tagihan - saldoLalu)
+            total -= saldoAwalRantai;
+            if (total < 0) total = 0; // deposit menutup semua tagihan
+            const subSaldo = saldoAwalRantai < 0 ? ' &mdash; termasuk utang sebelumnya'
+                          : saldoAwalRantai > 0 ? ' &mdash; dipotong deposit sebelumnya'
+                          : (total === 0 ? ' &mdash; deposit menutup semua tagihan' : '');
 
             const rentang = rantai.length > 1
                 ? singkatRentang(rantai[0].periode, rantai[rantai.length - 1].periode)
@@ -1465,7 +1570,7 @@
                     <div class="nota-banner nota-banner-merah">
                         <div class="banner-utama"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V13"/><path d="M12 16.5h.01"/></svg>Total Harus Dibayar Sekarang</div>
                         <div class="banner-angka">${rp(total)}</div>
-                        <div class="banner-sub">${rantai.length} bulan belum dibayar: ${rentang} (${totalM3} m&sup3;)</div>
+                        <div class="banner-sub">${rantai.length} bulan belum dibayar: ${rentang} (${totalM3} m&sup3;)${subSaldo}</div>
                     </div>
                     ${blokBulan}
                     <div class="nota-total"><span>TOTAL SEMUA (${totalM3} m&sup3;)</span><b>${rp(total)}</b></div>
@@ -1810,10 +1915,10 @@
         rtAktif = rtTarget;
         terapkanIdentitasRT();
         semuaBaris = dataRT;
+        hitungUrutanReferensi();
         daftarPeriode = susunPeriode(semuaBaris);
         idxPeriode = daftarPeriode.length ? daftarPeriode.length - 1 : 0;
-        const teks = daftarPeriode[idxPeriode] || "";
-        excelData = semuaBaris.filter(b => b.periode === teks);
+        susunExcelDataPeriode(); // urutan rumah — sama seperti tampilan utama
 
         // Buat PDF
         const doc = buatDokumenLaporanPDF();
