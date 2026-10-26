@@ -21,7 +21,7 @@ header("Content-Type: application/json; charset=UTF-8");
 // Saran: ganti password DB ini dari panel InfinityFree bila sempat.
 $host = "192.168.0.100";
 $user = "asuueuor_pam";
-$pass = "bTTE5dkKJnvkY6gPSAVE";
+$pass = "2q0t6Cp5mV";
 $db   = "asuueuor_pam";
 
 $conn = new mysqli($host, $user, $pass, $db);
