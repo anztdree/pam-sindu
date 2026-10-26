@@ -764,12 +764,15 @@
     let daftarPeriode = []; // teks periode unik, urut kronologis
     let idxPeriode = 0;     // indeks periode aktif di daftarPeriode
     let excelData = [];     // baris periode aktif (nama variabel sama seperti aplikasi utama)
-    // URUTAN RUMAH — kemunculan PERTAMA tiap nama menurut urutan id database.
-    // Sama persis dengan susunDaftarDariBaris di aplikasi Petugas: urutan nama
-    // "terkunci" mengikuti id terkecil tiap nama, bukan urutan baris periode
-    // aktif. Tanpa ini, periode yang barisnya pernah tersimpan urut abjad
-    // (mis. Oktober RT 08, September–Oktober RT 09) tampil melompat dari
-    // urutan rumah, padahal Juni–Juli benar.
+    // URUTAN RUMAH — kemunculan PERTAMA tiap nama menurut urutan KRONOLOGIS
+    // periode, lalu urutan id database. Sama persis dengan susunDaftarDariBaris
+    // di aplikasi Petugas (rowid SQLite petugas bertambah sesuai urutan bulan
+    // dibuat), tapi LEBIH TAHAN BANTING: walau suatu hari bulan baru ke-import
+    // lebih dulu, atau bulan lama di-import ulang (id MySQL ikut berubah),
+    // urutan nama TETAP terkunci mengikuti bulan paling awal — salah urut
+    // tidak akan terulang di bulan/tahun berikutnya. Tanpa ini, periode yang
+    // barisnya tersimpan urut abjad (Oktober RT 08, September–Oktober RT 09)
+    // tampil melompat dari urutan rumah, padahal Juni–Juli benar.
     let urutanReferensi = [];
 
     function num(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -993,13 +996,22 @@
         return awalSingkat + " – " + akhir;
     }
 
-    // Urutan rumah = kemunculan pertama tiap nama mengikuti urutan id (baris
-    // dibaca ORDER BY id dari MySQL). Ini penyalinan logika susunDaftarDariBaris
-    // aplikasi Petugas sehingga urutan nama viewer = urutan nama di aplikasi.
+    // Urutan rumah = kemunculan PERTAMA tiap nama mengikuti urutan KRONOLOGIS
+    // periode (kunciPeriode), lalu urutan id database (baris dibaca ORDER BY id
+    // dari MySQL). Ini setara dengan susunDaftarDariBaris aplikasi Petugas
+    // (rowid di SQLite petugas bertambah sesuai urutan bulan dibuat) sehingga
+    // urutan nama viewer = urutan nama di aplikasi — TAPI tidak rusak walau
+    // urutan import berantakan (bulat uji data: hasil identik dgn Petugas,
+    // dan tetap benar walau baris di-import terbalik urutan bulannya).
     function hitungUrutanReferensi() {
-        const urut = [];
-        const lihat = new Set();
-        semuaBaris.forEach(r => {
+        const beridx = semuaBaris.map((r, i) => ({ r, i }));
+        beridx.sort((a, b) => {
+            const ka = kunciPeriode(a.r.periode).kunci, kb = kunciPeriode(b.r.periode).kunci;
+            if (ka !== kb) return ka - kb; // kronologis periode dulu (Jun sebelum Juli, dst.)
+            return a.i - b.i;              // lalu urutan id dalam periode itu
+        });
+        const urut = [], lihat = new Set();
+        beridx.forEach(({ r }) => {
             if (r.nama == null) return;
             const n = String(r.nama);
             if (!lihat.has(n)) { lihat.add(n); urut.push(n); }
@@ -1227,6 +1239,10 @@
             return;
         }
         label.innerText = daftarPeriode[idxPeriode];
+        // Label periode di panel Laporan PDF ikut segar — supaya janji "Laporan PDF
+        // untuk bulan ini: ..." selalu sama dengan bulan yang benar-benar dicetak.
+        const lblLaporan = document.getElementById('lblPeriodeLaporan');
+        if (lblLaporan) lblLaporan.innerText = daftarPeriode[idxPeriode];
         btnPrev.disabled = idxPeriode <= 0;
         btnNext.disabled = idxPeriode >= daftarPeriode.length - 1;
         if (daftarPeriode.length > 1) {
@@ -1790,6 +1806,10 @@
         // Aturan (permintaan pengelola): hanya bayar beban → kosong tanpa blok;
         // meteran berjalan tapi belum bayar → blok kuning & rupiah DISEMBUNYIKAN;
         // sudah bayar → iuran tampil. TOTAL hanya menjumlah iuran yang tampil (terbayar). =====
+        // Nama utk PDF: buang penanda coret <S>...</S> (petugas menandai pelanggan
+        // pindah dgn tag coret; di layar tampil tercoret, di PDF cukup teks bersih
+        // mis. "[PINDAH]") supaya tidak tercetak mentah seperti kode HTML.
+        const teksNama = n => String(n == null ? '' : n).replace(/<\/?s\b[^>]*>/gi, '');
         let totalIuran = 0;
         const belumIdx = new Set();
         const body = excelData.map((it, i) => {
@@ -1799,7 +1819,7 @@
             const tampilIuran = sudah && info.biayaAir > 0; // hanya yang sudah bayar yang tunjukkan rupiah
             if (tampilIuran) totalIuran += info.biayaAir;
             if (!sudah && info.pemakaian > 0) belumIdx.add(i); // blok kuning hanya utk meteran berjalan
-            return [i + 1, it.nama,
+            return [i + 1, teksNama(it.nama),
                 it.meter_awal,
                 tercatat ? it.meter_akhir : "",
                 tercatat ? info.pemakaian : "",
@@ -1917,7 +1937,19 @@
         semuaBaris = dataRT;
         hitungUrutanReferensi();
         daftarPeriode = susunPeriode(semuaBaris);
-        idxPeriode = daftarPeriode.length ? daftarPeriode.length - 1 : 0;
+        // CETAK PERIODE YANG SEDANG DILIHAT — sama dengan label "Laporan PDF
+        // untuk bulan ini: ..." di panel. Dulu selalu mencetak periode TERBARU
+        // walau user sedang membuka bulan lain (bikin PDF terlihat "ikut salah").
+        // Bila RT target tidak punya data periode itu, fallback ke periode
+        // terbaru + pemberitahuan supaya tidak mengejutkan.
+        const periodeDilihat = simpanDaftarPeriode[simpanIdxPeriode] || "";
+        const idxDilihat = daftarPeriode.indexOf(periodeDilihat);
+        if (idxDilihat >= 0) {
+            idxPeriode = idxDilihat;
+        } else {
+            idxPeriode = daftarPeriode.length ? daftarPeriode.length - 1 : 0;
+            showToast("RT " + rtTarget + " tidak punya data " + (periodeDilihat || "-") + " — mencetak periode terbaru: " + (daftarPeriode[idxPeriode] || "-"), "info");
+        }
         susunExcelDataPeriode(); // urutan rumah — sama seperti tampilan utama
 
         // Buat PDF
@@ -1931,6 +1963,11 @@
         rtAktif = simpanRtAktif;
         terapkanIdentitasRT();
         semuaBaris = simpanSemuaBaris;
+        // WAJIB: hitung ulang urutan rumah RT asli. Dulu urutanReferensi masih
+        // milik RT target (yang dicetak), sehingga begitu renderSemua() jalan
+        // seluruh daftar tampil URUT ID (Oktober jadi urut abjad) sampai halaman
+        // dimuat ulang — inilah penyebab "setelah cetak PDF urutan ikut salah".
+        hitungUrutanReferensi();
         daftarPeriode = simpanDaftarPeriode;
         idxPeriode = simpanIdxPeriode;
         excelData = simpanExcelData;
