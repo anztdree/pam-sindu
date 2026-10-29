@@ -1,6 +1,6 @@
 -- Backup Database BPSPAMS Tirta Makmur - SINDUHARJO 08/04 & 09/04
 -- Berisi data SEMUA RT (RT 08 + RT 09) — 1 file, 2 tabel.
--- Dibuat: 28/10/2026, 16.30.56
+-- Dibuat: 29/10/2026, 17.28.17
 -- Total baris: 318
 -- Pemakaian: file ini untuk diupload ke Website lewat Menu Import .sql
 -- ke Database (periode yang sama DIGANTI, periode lain tetap aman).
@@ -190,10 +190,10 @@ INSERT INTO `transaksi_pelanggan_rt08` (`periode`, `nama`, `meter_awal`, `meter_
 ('September 2026', 'ISBAROH', 265, 270, 14500, 2000, 0, 'Sudah Bayar'),
 ('September 2026', 'BU IS (TOL)', 2454, 2498, 261500, 2000, -149500, 'Sudah Bayar'),
 ('Oktober 2026', '<S>[PINDAH]</S>', 883, 883, 0, 2000, 0, 'Belum Bayar'),
-('Oktober 2026', 'ABDULLAH', 46, 56, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'ABDULLAH', 46, 56, 27000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'ADIT', 99, 100, 4500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'AGUS', 57, 57, 0, 2000, 0, 'Belum Bayar'),
-('Oktober 2026', 'ANI', 631, 648, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'ANI', 631, 648, 44500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'ATIK', 22, 22, 0, 2000, -8000, 'Belum Bayar'),
 ('Oktober 2026', 'BAMBANG PARLIS', 191, 196, 14500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'BOWO', 1, 1, 0, 2000, -8000, 'Belum Bayar'),
@@ -214,7 +214,7 @@ INSERT INTO `transaksi_pelanggan_rt08` (`periode`, `nama`, `meter_awal`, `meter_
 ('Oktober 2026', 'LEGIMAN / TINAH', 201, 217, 42000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'MADRIM', 669, 698, 74500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'MARNI SATE', 85, 85, 2000, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'MULYONO', 161, 163, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'MULYONO', 161, 163, 7000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'NARTI', 261, 286, 65000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'NGATIRAN', 106, 108, 0, 2000, 0, 'Belum Bayar'),
 ('Oktober 2026', 'NUR W', 16, 16, 2000, 2000, 0, 'Sudah Bayar'),
@@ -227,11 +227,11 @@ INSERT INTO `transaksi_pelanggan_rt08` (`periode`, `nama`, `meter_awal`, `meter_
 ('Oktober 2026', 'SUMARNO', 87, 88, 0, 2000, -2000, 'Belum Bayar'),
 ('Oktober 2026', 'SUPOYO', 10, 10, 4000, 2000, -2000, 'Sudah Bayar'),
 ('Oktober 2026', 'SUPRAPTI', 5, 5, 2000, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'SUPRIYONO (TAMBAL BAN)', 171, 171, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'SUPRIYONO (TAMBAL BAN)', 171, 171, 2000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'SUTARNO', 405, 414, 24500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'SUTOPO', 1, 1, 2000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'SUWARNI', 217, 219, 7000, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'TRI W', 737, 744, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'TRI W', 737, 744, 19500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'TRIYANTO', 76, 76, 0, 2000, -4000, 'Belum Bayar'),
 ('Oktober 2026', 'WAGIYO', 25, 25, 4000, 2000, -2000, 'Sudah Bayar');
 
@@ -310,7 +310,7 @@ INSERT INTO `transaksi_pelanggan_rt09` (`periode`, `nama`, `meter_awal`, `meter_
 ('Oktober 2026', 'JIMAN / AYU', 440, 442, 7000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'LUSIA WARTI', 1935, 1935, 0, 2000, -2000, 'Belum Bayar'),
 ('Oktober 2026', 'MARTINI', 171, 178, 19500, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'MULYONO', 144, 147, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'MULYONO', 144, 147, 9500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'NGATIMIN', 220, 227, 19500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'PARIYATUN', 1, 1, 2000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'RINA', 84, 88, 12000, 2000, 0, 'Sudah Bayar'),
@@ -328,5 +328,5 @@ INSERT INTO `transaksi_pelanggan_rt09` (`periode`, `nama`, `meter_awal`, `meter_
 ('Oktober 2026', 'SUROSO', 816, 824, 22000, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'TRI SUTRISNO', 114, 114, 0, 2000, -2000, 'Belum Bayar'),
 ('Oktober 2026', 'TUKINI', 12, 12, 0, 2000, -2000, 'Belum Bayar'),
-('Oktober 2026', 'UMMADI JONED', 304, 308, 0, 2000, 500, 'Belum Bayar'),
+('Oktober 2026', 'UMMADI JONED', 304, 308, 11500, 2000, 500, 'Sudah Bayar'),
 ('Oktober 2026', 'WINARNO', 329, 329, 0, 2000, 0, 'Belum Bayar');
