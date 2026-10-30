@@ -1,6 +1,6 @@
 -- Backup Database BPSPAMS Tirta Makmur - SINDUHARJO 08/04 & 09/04
 -- Berisi data SEMUA RT (RT 08 + RT 09) — 1 file, 2 tabel.
--- Dibuat: 29/10/2026, 17.28.17
+-- Dibuat: 30/10/2026, 13.01.00
 -- Total baris: 318
 -- Pemakaian: file ini untuk diupload ke Website lewat Menu Import .sql
 -- ke Database (periode yang sama DIGANTI, periode lain tetap aman).
@@ -299,12 +299,12 @@ INSERT INTO `transaksi_pelanggan_rt09` (`periode`, `nama`, `meter_awal`, `meter_
 ('September 2026', 'TRI SUTRISNO', 114, 114, 0, 2000, 0, 'Belum Bayar'),
 ('September 2026', 'TUKINI', 12, 12, 0, 2000, 0, 'Belum Bayar'),
 ('September 2026', 'WINARNO', 328, 329, 4500, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'ACHMAD S', 722, 737, 123500, 2000, -129500, 'Sudah Bayar'),
+('Oktober 2026', 'ACHMAD S', 722, 737, 169000, 2000, -129500, 'Sudah Bayar'),
 ('Oktober 2026', 'ARJO / SUWOTO', 134, 138, 0, 2000, 500, 'Belum Bayar'),
 ('Oktober 2026', 'B PARNO', 144, 146, 7000, 2000, 0, 'Sudah Bayar'),
-('Oktober 2026', 'BANDUNG', 660, 662, 16500, 2000, -14500, 'Sudah Bayar'),
+('Oktober 2026', 'BANDUNG', 660, 662, 21500, 2000, -14500, 'Sudah Bayar'),
 ('Oktober 2026', 'DARMO KASDI', 149, 150, 0, 2000, 0, 'Belum Bayar'),
-('Oktober 2026', 'ENDRI RAMADHAN', 366, 377, 0, 2000, 0, 'Belum Bayar'),
+('Oktober 2026', 'ENDRI RAMADHAN', 366, 377, 29500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'HARIYANA', 217, 218, 0, 2000, 0, 'Belum Bayar'),
 ('Oktober 2026', 'HARJONO/ SENTOT', 690, 695, 14500, 2000, 0, 'Sudah Bayar'),
 ('Oktober 2026', 'JIMAN / AYU', 440, 442, 7000, 2000, 0, 'Sudah Bayar'),
